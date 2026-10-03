@@ -1,0 +1,1503 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
+<meta name="theme-color" content="#667eea">
+<meta name="description" content="КТ-Журнал Pro — Жуковская областная клиническая больница">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="КТ-Журнал">
+<title>КТ-Журнал Pro v24 — Жуковская ОКБ</title>
+
+<!-- Библиотеки -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
+<!-- PWA -->
+<link rel="manifest" href="manifest.json">
+<link rel="icon" type="image/png" sizes="192x192" href="img/logo-192.png">
+<link rel="apple-touch-icon" href="img/logo-192.png">
+
+<!-- Стили -->
+<link rel="stylesheet" href="css/styles.css">
+<style>
+    /* ФИКС: свёрнутые аккордеоны */
+    .organ-group-body.collapsed,
+    .template-group-body.collapsed {
+        display: none !important;
+    }
+</style>
+</head>
+<body>
+
+<!-- ============================================================
+     ЭКРАН ВХОДА
+     ============================================================ -->
+<div id="loginScreen" class="login-screen">
+    <div class="login-box">
+        <div class="login-logo">
+            <div class="login-logo-icon">
+                <img src="img/logo.png" alt="Логотип">
+            </div>
+            <div class="login-title">КТ-Журнал Pro</div>
+            <div class="login-subtitle">Жуковская областная клиническая больница</div>
+        </div>
+
+        <div style="margin-bottom:16px">
+            <div class="field-label" style="margin-bottom:8px">Выберите роль</div>
+            <div class="role-selector">
+                <div class="role-btn" data-role="lab" onclick="selectRole('lab')">
+                    <div class="role-btn-icon">👩‍🔬</div>
+                    <div class="role-btn-name">Лаборант</div>
+                </div>
+                <div class="role-btn" data-role="doctor" onclick="selectRole('doctor')">
+                    <div class="role-btn-icon">👨‍⚕️</div>
+                    <div class="role-btn-name">Врач</div>
+                </div>
+                <div class="role-btn" data-role="admin" onclick="selectRole('admin')">
+                    <div class="role-btn-icon">🔑</div>
+                    <div class="role-btn-name">Администратор</div>
+                </div>
+                <div class="role-btn" data-role="dept" onclick="selectRole('dept')">
+                    <div class="role-btn-icon">🏥</div>
+                    <div class="role-btn-name">Отделение</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="field" id="loginDeptBlock" style="display:none;margin-bottom:12px">
+            <label class="field-label">Отделение</label>
+            <select class="select" id="loginDept"></select>
+        </div>
+
+        <div class="field" style="margin-bottom:12px">
+            <label class="field-label">Пароль</label>
+            <div class="input-with-icon">
+                <input type="password" class="input" id="loginPassword" placeholder="Введите пароль"
+                       onkeypress="if(event.key==='Enter')doLogin()">
+                <button class="icon-btn" onclick="togglePasswordVisibility()" title="Показать/скрыть пароль">👁️</button>
+            </div>
+        </div>
+
+        <button class="btn btn-primary" style="width:100%;justify-content:center;padding:12px" onclick="doLogin()">
+            🔓 Войти
+        </button>
+
+        <div class="login-hint">
+            <strong>Пароли по умолчанию:</strong><br>
+            Лаборант: <code>lab</code> • Врач: <code>doctor</code> •
+            Админ: <code>admin</code> • Отделение: <code>dept</code>
+        </div>
+    </div>
+</div>
+
+<!-- ============================================================
+     ОСНОВНОЕ ПРИЛОЖЕНИЕ
+     ============================================================ -->
+<div id="mainApp" style="display:none">
+
+    <!-- ШАПКА -->
+    <header class="header">
+        <div class="header-inner">
+            <div class="logo">
+                <div class="logo-icon">
+                    <img src="img/logo.png" alt="Логотип">
+                </div>
+                <div>
+                    <div>КТ-Журнал Pro</div>
+                    <div style="font-size:10px;font-weight:400;opacity:.9">Жуковская ОКБ</div>
+                </div>
+            </div>
+            <div class="header-actions">
+                <div class="user-badge" id="userBadge">👤 —</div>
+                <span id="requestsBadge" class="requests-badge" style="display:none" onclick="onRequestsBadgeClick()">
+                    📨 <span id="requestsCount">0</span>
+                </span>
+                <button class="btn btn-ghost" id="pwaInstallBtn" style="display:none" onclick="installPWA()" title="Установить приложение">
+                    📲 Установить
+                </button>
+                <button class="btn btn-ghost" onclick="toggleTheme()"><span id="themeIcon">🌙</span></button>
+                <button class="btn btn-ghost" onclick="logout()">🚪 Выход</button>
+                <button class="btn btn-primary" id="newStudyBtn" onclick="openNewStudy()">✨ Новое исследование</button>
+            </div>
+        </div>
+    </header>
+
+    <!-- ОСНОВНОЙ КОНТЕНТ -->
+    <main class="main">
+
+        <!-- ВКЛАДКИ -->
+        <div class="tabs">
+            <button class="tab active" data-tab="journal">📋 Журнал</button>
+            <button class="tab" data-tab="requests">📨 Заявки</button>
+            <button class="tab" data-tab="stock">📦 Склад</button>
+            <button class="tab" data-tab="stats">📊 Отчеты</button>
+            <button class="tab" data-tab="templates">📑 Шаблоны</button>
+            <button class="tab" data-tab="settings">⚙️ Настройки</button>
+        </div>
+
+        <!-- ============================================================
+             ВКЛАДКА: ЖУРНАЛ
+             ============================================================ -->
+        <div class="tab-panel active" id="tab-journal">
+            <div class="stats-grid" id="quickStats"></div>
+
+            <div class="filters-panel">
+                <div class="filters-header" onclick="toggleFilters()">
+                    <h3>🔍 Фильтры <span id="filtersCount" class="badge" style="display:none">0</span></h3>
+                    <div style="display:flex;gap:8px">
+                        <button class="btn btn-secondary" onclick="event.stopPropagation();resetFilters()" style="padding:6px 12px;font-size:11px">✖ Сбросить</button>
+                        <span id="filtersArrow">▼</span>
+                    </div>
+                </div>
+                <div class="filters-body" id="filtersBody">
+                    <div class="field">
+                        <label class="field-label">🔎 Поиск</label>
+                        <input type="text" class="input" id="filterSearch" placeholder="ФИО..." oninput="applyFilters()">
+                    </div>
+                    <div class="field">
+                        <label class="field-label">📅 Дата исследования с</label>
+                        <input type="date" class="input" id="filterDateFrom" onchange="applyFilters()">
+                    </div>
+                    <div class="field">
+                        <label class="field-label">📅 Дата исследования по</label>
+                        <input type="date" class="input" id="filterDateTo" onchange="applyFilters()">
+                    </div>
+                    <div class="field">
+                        <label class="field-label">🕐 Время поступления с</label>
+                        <input type="time" class="input" id="filterAdmitTimeFrom" onchange="applyFilters()">
+                    </div>
+                    <div class="field">
+                        <label class="field-label">🕐 Время поступления по</label>
+                        <input type="time" class="input" id="filterAdmitTimeTo" onchange="applyFilters()">
+                    </div>
+                    <div class="field">
+                        <label class="field-label">🕐 Время исследования с</label>
+                        <input type="time" class="input" id="filterStudyTimeFrom" onchange="applyFilters()">
+                    </div>
+                    <div class="field">
+                        <label class="field-label">🕐 Время исследования по</label>
+                        <input type="time" class="input" id="filterStudyTimeTo" onchange="applyFilters()">
+                    </div>
+                    <div class="field">
+                        <label class="field-label">🏥 Отделение</label>
+                        <select class="select" id="filterDept" onchange="applyFilters()"><option value="">Все</option></select>
+                    </div>
+                    <div class="field">
+                        <label class="field-label">🩺 Врач</label>
+                        <select class="select" id="filterDoctor" onchange="applyFilters()"><option value="">Все</option></select>
+                    </div>
+                    <div class="field">
+                        <label class="field-label">👩‍🔬 Лаборант</label>
+                        <select class="select" id="filterLab" onchange="applyFilters()"><option value="">Все</option></select>
+                    </div>
+                    <div class="field">
+                        <label class="field-label">📌 Статус</label>
+                        <select class="select" id="filterStatus" onchange="applyFilters()">
+                            <option value="">Все</option>
+                            <option value="pending">🟡 Ожидает</option>
+                            <option value="described">🟢 Описано</option>
+                            <option value="signed">🔵 Подписано</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+                    <div class="card-title"><div class="icon">🩻</div>Исследования</div>
+                    <div style="display:flex;gap:8px">
+                        <button class="btn btn-secondary" onclick="exportCSV()">📄 CSV</button>
+                        <button class="btn btn-secondary" onclick="exportJSON()">💾 JSON</button>
+                    </div>
+                </div>
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>№</th>
+                                <th>№ смены</th>
+                                <th>Статус</th>
+                                <th>Дата иссл.</th>
+                                <th>Время иссл.</th>
+                                <th>Время поступл.</th>
+                                <th>ФИО</th>
+                                <th>Д.р./Возраст</th>
+                                <th>Отд.</th>
+                                <th>Шаблон</th>
+                                <th>Нативные</th>
+                                <th>С КУ</th>
+                                <th>Доза</th>
+                                <th>Контраст</th>
+                                <th>Врач</th>
+                                <th>Лаборант</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody id="journalBody"></tbody>
+                    </table>
+                </div>
+                <div id="journalEmpty" style="display:none;text-align:center;padding:40px;color:var(--text-muted)">
+                    <div style="font-size:48px;margin-bottom:12px;opacity:.5">📭</div>
+                    <div>Записей не найдено</div>
+                </div>
+                <div style="font-size:12px;color:var(--text-muted);margin-top:12px">
+                    💡 <strong>Клик</strong> — окно врача. <strong>Ctrl+клик</strong> — редактирование. <strong>Правый клик</strong> — удаление.
+                </div>
+            </div>
+        </div>
+
+        <!-- ============================================================
+             ВКЛАДКА: ЗАЯВКИ
+             ============================================================ -->
+        <div class="tab-panel" id="tab-requests">
+            <div class="card">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+                    <div class="card-title" style="margin-bottom:0"><div class="icon">📨</div>Заявки на КТ</div>
+                    <div style="display:flex;gap:8px;flex-wrap:wrap">
+                        <button class="btn btn-add" id="newRequestBtn" onclick="openNewRequest()">➕ Создать заявку</button>
+                        <select class="select" id="requestFilterStatus" style="width:auto;min-width:180px" onchange="renderRequests()">
+                            <option value="">Все статусы</option>
+                            <option value="new">🟡 Новые</option>
+                            <option value="accepted">🟠 Принятые</option>
+                            <option value="done">🟢 Выполненные</option>
+                            <option value="rejected">🔴 Отклонённые</option>
+                        </select>
+                        <select class="select" id="requestFilterDept" style="width:auto;min-width:180px;display:none" onchange="renderRequests()">
+                            <option value="">Все отделения</option>
+                        </select>
+                    </div>
+                </div>
+                <div id="requestsStats" class="stats-grid"></div>
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Дата</th><th>Статус</th><th>Срочность</th><th>ФИО</th>
+                                <th>Д.р./Возраст</th><th>№ истории</th><th>Отделение</th>
+                                <th>Направил</th><th>Диагноз</th><th>Цель</th><th>Зоны</th><th>Действия</th>
+                            </tr>
+                        </thead>
+                        <tbody id="requestsBody"></tbody>
+                    </table>
+                </div>
+                <div id="requestsEmpty" style="display:none;text-align:center;padding:40px;color:var(--text-muted)">
+                    <div style="font-size:48px;margin-bottom:12px;opacity:.5">📭</div>
+                    <div>Заявок не найдено</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ============================================================
+             ВКЛАДКА: СКЛАД
+             ============================================================ -->
+        <div class="tab-panel" id="tab-stock">
+            <div class="stats-grid" id="stockStats"></div>
+
+            <div class="card">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+                    <div class="card-title"><div class="icon">💉</div>Контрастные препараты</div>
+                    <button class="btn btn-add" onclick="openDrugModal()">➕ Добавить препарат</button>
+                </div>
+                <div id="drugsList"></div>
+            </div>
+
+            <div class="card">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+                    <div class="card-title"><div class="icon">🔧</div>Расходные материалы</div>
+                    <button class="btn btn-add" onclick="openConsumableModal()">➕ Добавить расходник</button>
+                </div>
+                <div id="consumablesList"></div>
+            </div>
+
+            <div class="card">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+                    <div class="card-title"><div class="icon">📜</div>Журнал операций склада</div>
+                    <div style="display:flex;gap:8px;flex-wrap:wrap">
+                        <button class="btn btn-success" onclick="openOperationModal('in')">📥 Приход</button>
+                        <button class="btn btn-warning" onclick="openOperationModal('out')">📤 Ручной расход</button>
+                    </div>
+                </div>
+                <div class="report-filters">
+                    <div class="field"><label class="field-label">📅 С даты</label><input type="date" class="input" id="opDateFrom" onchange="renderOperations()"></div>
+                    <div class="field"><label class="field-label">📅 По дату</label><input type="date" class="input" id="opDateTo" onchange="renderOperations()"></div>
+                    <div class="field"><label class="field-label">📦 Тип</label><select class="select" id="opTypeFilter" onchange="renderOperations()">
+                        <option value="">Все</option>
+                        <option value="in">📥 Приход</option>
+                        <option value="out">📤 Ручной расход</option>
+                        <option value="auto">⚙️ Авто-списание</option>
+                    </select></div>
+                    <div class="field"><label class="field-label">🔍 Поиск</label><input type="text" class="input" id="opSearch" placeholder="Препарат..." oninput="renderOperations()"></div>
+                    <div class="field"><button class="btn btn-secondary" onclick="clearOpFilters()" style="width:100%">✖ Сбросить</button></div>
+                </div>
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr><th>Дата</th><th>Время</th><th>Тип</th><th>Препарат/Расходник</th><th>Количество</th><th>Примечание</th><th>Пользователь</th></tr>
+                        </thead>
+                        <tbody id="operationsBody"></tbody>
+                    </table>
+                </div>
+                <div id="operationsEmpty" style="display:none;text-align:center;padding:30px;color:var(--text-muted)">Операций не найдено</div>
+            </div>
+
+            <div class="card">
+                <div class="card-title"><div class="icon">📊</div>Отчёт по движению склада</div>
+                <div class="report-filters">
+                    <div class="field"><label class="field-label">📅 С даты</label><input type="date" class="input" id="reportDateFrom" onchange="renderReport()"></div>
+                    <div class="field"><label class="field-label">📅 По дату</label><input type="date" class="input" id="reportDateTo" onchange="renderReport()"></div>
+                    <div class="field"><button class="btn btn-primary" onclick="renderReport()" style="width:100%">📊 Сформировать отчёт</button></div>
+                </div>
+                <div id="reportResult"></div>
+            </div>
+        </div>
+
+        <!-- ============================================================
+             ВКЛАДКА: ОТЧЁТЫ
+             ============================================================ -->
+        <div class="tab-panel" id="tab-stats">
+            <div class="stats-grid" id="totalStatsGrid"></div>
+            <div class="stats-grid" id="fullStats"></div>
+
+            <div style="margin-bottom:16px">
+                <button class="btn btn-excel" onclick="exportFullExcel()">📊 Экспорт отчета в Excel (все листы)</button>
+            </div>
+
+            <div class="grid">
+                <div class="card">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+                        <div class="card-title" style="margin-bottom:0"><div class="icon">🏥</div>По отделениям</div>
+                        <button class="btn btn-info" onclick="openDeptCharts()" style="padding:6px 12px;font-size:11px">📊 Графики</button>
+                    </div>
+                    <div id="statsByDept"></div>
+                </div>
+
+                <div class="card">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+                        <div class="card-title" style="margin-bottom:0"><div class="icon">🦴</div>Зоны исследования</div>
+                        <button class="btn btn-info" onclick="openZoneCharts()" style="padding:6px 12px;font-size:11px">📊 Графики</button>
+                    </div>
+                    <div id="statsByZone"></div>
+                </div>
+
+                <div class="card">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+                        <div class="card-title" style="margin-bottom:0"><div class="icon">🩺</div>По диагнозам</div>
+                        <button class="btn btn-info" onclick="openDiaCharts()" style="padding:6px 12px;font-size:11px">📊 Графики</button>
+                    </div>
+                    <div id="statsByDiag"></div>
+                </div>
+
+                <div class="card">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+                        <div class="card-title" style="margin-bottom:0"><div class="icon">📅</div>По месяцам</div>
+                        <button class="btn btn-info" onclick="openMonthCharts()" style="padding:6px 12px;font-size:11px">📊 Графики</button>
+                    </div>
+                    <div id="statsByMonth"></div>
+                </div>
+
+                <div class="card">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+                        <div class="card-title" style="margin-bottom:0"><div class="icon">🔄</div>По сменам</div>
+                        <button class="btn btn-info" onclick="openShiftCharts()" style="padding:6px 12px;font-size:11px">📊 Графики</button>
+                    </div>
+                    <div class="field-hint" style="margin-bottom:10px">
+                        💡 Смена: с 08:00 одного дня до 08:00 следующего
+                    </div>
+                    <div id="statsByShift"></div>
+                </div>
+            </div>
+
+            <div class="card" style="margin-top:20px">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+                    <div class="card-title" style="margin-bottom:0"><div class="icon">👨‍⚕️</div>Производительность персонала</div>
+                    <button class="btn btn-info" onclick="openPerformanceCharts()" style="padding:6px 12px;font-size:11px">📊 Графики</button>
+                </div>
+                <div style="font-size:12px;color:var(--text-muted)">💡 Нажмите «📊 Графики» — откроются графики по врачам и лаборантам</div>
+            </div>
+        </div>
+
+        <!-- ============================================================
+             ВКЛАДКА: ШАБЛОНЫ
+             ============================================================ -->
+        <div class="tab-panel" id="tab-templates">
+            <div class="card">
+                <div style="display:flex;justify-content:space-between;margin-bottom:12px">
+                    <div class="card-title"><div class="icon">📑</div>Шаблоны исследований (для лаборанта)</div>
+                    <button class="btn btn-add" onclick="openTemplateModal()">➕ Создать шаблон</button>
+                </div>
+                <div id="templatesList"></div>
+            </div>
+
+            <div id="doctorTemplatesSection" style="display:none">
+                <div class="card">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+                        <div class="card-title"><div class="icon">📝</div>Библиотека шаблонов описаний (для врача)</div>
+                        <div style="display:flex;gap:8px">
+                            <button class="btn btn-secondary" onclick="exportDescTemplates()" style="font-size:11px;padding:6px 10px">📤 Экспорт</button>
+                            <button class="btn btn-secondary" onclick="document.getElementById('importDescFile').click()" style="font-size:11px;padding:6px 10px">📥 Импорт</button>
+                            <input type="file" id="importDescFile" accept=".json" style="display:none" onchange="importDescTemplates(event)">
+                            <button class="btn btn-add" onclick="openDescTemplateModal()" style="font-size:11px;padding:6px 10px">➕ Добавить</button>
+                        </div>
+                    </div>
+                    <p style="font-size:12px;color:var(--text-muted);margin-bottom:12px">
+                        💡 Группированные заготовки для врача. Вставляются в описание выбранной зоны.
+                    </p>
+                    <div id="descTemplatesList"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ============================================================
+             ВКЛАДКА: НАСТРОЙКИ
+             ============================================================ -->
+        <div class="tab-panel" id="tab-settings">
+
+            <div class="card" id="themeSettingsBlock">
+                <div class="card-title">
+                    <div class="icon">🎨</div>Оформление
+                </div>
+                <div class="field">
+                    <label class="field-label">🌓 Тема интерфейса</label>
+                    <div class="field-hint" style="margin-bottom:8px">
+                        💡 Выберите светлую, тёмную или автоматическую тему
+                    </div>
+                    <div class="theme-presets" id="themePresets">
+                        <button class="theme-preset" data-theme-preset="light" onclick="applyThemePreset('light')">
+                            ☀️ Светлая
+                        </button>
+                        <button class="theme-preset" data-theme-preset="dark" onclick="applyThemePreset('dark')">
+                            🌙 Тёмная
+                        </button>
+                        <button class="theme-preset" data-theme-preset="auto" onclick="applyThemePreset('auto')">
+                            🌗 Авто (по системе)
+                        </button>
+                    </div>
+                </div>
+                <div class="btn-row" style="margin-top:20px">
+                    <button class="btn btn-secondary" onclick="resetThemeSettings()">
+                        🔄 Сбросить тему
+                    </button>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-title"><div class="icon">💾</div>Данные</div>
+                <div class="btn-row">
+                    <button class="btn btn-primary" onclick="exportJSON()">💾 Экспорт JSON</button>
+                    <button class="btn btn-secondary" onclick="document.getElementById('importFile').click()">📥 Импорт JSON</button>
+                    <button class="btn btn-secondary" onclick="exportCSV()">📄 Экспорт CSV</button>
+                    <input type="file" id="importFile" accept=".json" style="display:none" onchange="importJSON(event)">
+                </div>
+            </div>
+
+            <div class="card" id="backupBlock">
+                <div class="card-title"><div class="icon">🔒</div>Резервные копии (автобэкап)</div>
+
+                <p style="font-size:12px;color:var(--text-muted);margin-bottom:12px">
+                    💡 Автоматические копии данных. Хранятся <strong>локально в браузере</strong>.
+                    Позволяют восстановить данные при ошибке.
+                </p>
+
+                <div class="grid" style="margin-bottom:16px">
+                    <div class="field">
+                        <label class="field-label">Автобэкап</label>
+                        <label style="display:flex;align-items:center;gap:10px;cursor:pointer;padding:10px 12px;background:var(--surface-2);border-radius:var(--radius-sm);border:1.5px solid var(--border)">
+                            <input type="checkbox" id="backupEnabled" style="width:18px;height:18px;cursor:pointer" onchange="toggleBackupEnabled(this.checked)">
+                            <span style="font-size:13px;font-weight:600">Включить автосохранение</span>
+                        </label>
+                    </div>
+                    <div class="field">
+                        <label class="field-label">Интервал (часов)</label>
+                        <select class="select" id="backupInterval" onchange="updateBackupInterval(this.value)">
+                            <option value="1">Каждый час</option>
+                            <option value="6">Каждые 6 часов</option>
+                            <option value="12">Каждые 12 часов</option>
+                            <option value="24" selected>Раз в сутки</option>
+                            <option value="72">Раз в 3 дня</option>
+                            <option value="168">Раз в неделю</option>
+                        </select>
+                    </div>
+                    <div class="field">
+                        <label class="field-label">Сколько копий хранить</label>
+                        <select class="select" id="backupMax" onchange="updateMaxBackups(this.value)">
+                            <option value="3">3 копии</option>
+                            <option value="5">5 копий</option>
+                            <option value="7" selected>7 копий</option>
+                            <option value="10">10 копий</option>
+                            <option value="15">15 копий</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div id="backupList"></div>
+            </div>
+
+            <div class="card" id="settingsStaffBlock">
+                <div class="card-title"><div class="icon">👥</div>Сотрудники</div>
+                <div class="grid">
+                    <div class="field"><label class="field-label">Врачи</label><textarea class="textarea" id="doctorsList"></textarea></div>
+                    <div class="field"><label class="field-label">Лаборанты</label><textarea class="textarea" id="labList"></textarea></div>
+                    <div class="field"><label class="field-label">Отделения</label><textarea class="textarea" id="deptsList"></textarea></div>
+                </div>
+                <div class="btn-row"><button class="btn btn-success" onclick="saveSettings()">💾 Сохранить</button></div>
+            </div>
+
+            <div class="card" id="settingsReferringDoctorsBlock">
+                <div class="card-title"><div class="icon">🩺</div>Врачи-направители</div>
+                <p style="font-size:12px;color:var(--text-muted);margin-bottom:12px">
+                    💡 Врачи, которые <strong>направляют</strong> пациентов на КТ из отделений. Один врач — на строку.<br>
+                    Формат: <strong>Фамилия И.О. (должность/отделение)</strong>
+                </p>
+                <div class="field">
+                    <label class="field-label">Список врачей-направителей</label>
+                    <textarea class="textarea" id="referringDoctorsList" style="min-height:150px;font-family:'Courier New',monospace;font-size:12px"
+                              placeholder="Иванов А.А. (врач-хирург)&#10;Петров П.П. (заведующий терапией)&#10;Сидоров С.С. (онколог)"></textarea>
+                </div>
+                <div class="btn-row">
+                    <button class="btn btn-success" onclick="saveReferringDoctors()">💾 Сохранить</button>
+                </div>
+            </div>
+
+            <div id="adminPasswordsBlock" class="card" style="display:none">
+                <div class="card-title"><div class="icon">🔐</div>Пароли пользователей</div>
+                <div class="grid">
+                    <div class="field"><label class="field-label">Пароль лаборанта</label><input type="text" class="input" id="pwdLab"></div>
+                    <div class="field"><label class="field-label">Пароль врача</label><input type="text" class="input" id="pwdDoctor"></div>
+                    <div class="field"><label class="field-label">Пароль администратора</label><input type="text" class="input" id="pwdAdmin"></div>
+                    <div class="field"><label class="field-label">Пароль отделений</label><input type="text" class="input" id="pwdDept"></div>
+                </div>
+                <div class="btn-row"><button class="btn btn-success" onclick="savePasswords()">💾 Сохранить пароли</button></div>
+            </div>
+
+            <div class="card" id="settingsICDBlock">
+                <div class="card-title"><div class="icon">🩺</div>Пользовательские диагнозы МКБ-10</div>
+                <p style="font-size:12px;color:var(--text-muted);margin-bottom:12px">💡 Формат: <strong>КОД - Название</strong></p>
+                <textarea class="textarea" id="customICDList" style="min-height:150px;font-family:'Courier New',monospace;font-size:12px"
+                          placeholder="C00 - Рак губы"></textarea>
+                <div class="btn-row"><button class="btn btn-success" onclick="saveCustomICD()">💾 Сохранить</button></div>
+            </div>
+
+            <div class="card">
+                <div class="card-title"><div class="icon">🦴</div>Пользовательские зоны исследования</div>
+                <p style="font-size:12px;color:var(--text-muted);margin-bottom:12px">
+                    💡 Добавьте свои зоны. Формат: <strong>Название зоны - Доза (мЗв)</strong>
+                </p>
+                <div style="margin-bottom:12px">
+                    <label class="field-label">Нативные зоны</label>
+                    <textarea class="textarea" id="customNativeZones" style="min-height:100px;font-family:'Courier New',monospace;font-size:12px"
+                              placeholder="Ключица правая - 1.5"></textarea>
+                </div>
+                <div>
+                    <label class="field-label">Зоны с КУ</label>
+                    <textarea class="textarea" id="customContrastZones" style="min-height:100px;font-family:'Courier New',monospace;font-size:12px"
+                              placeholder="Гортань с контрастом - 4.0"></textarea>
+                </div>
+                <div class="btn-row"><button class="btn btn-success" onclick="saveCustomZones()">💾 Сохранить зоны</button></div>
+            </div>
+
+            <div class="card" id="settingsDangerBlock">
+                <div class="card-title"><div class="icon">⚠️</div>Опасная зона</div>
+                <button class="btn btn-danger" onclick="openConfirmDeleteModal()">🗑️ Удалить все данные</button>
+            </div>
+
+        </div>
+    </main>
+</div>
+
+<!-- КНОПКА СКРОЛЛА -->
+<button class="scroll-btn" id="scrollButton" onclick="handleScrollClick()" title="Наверх/Вниз">⬇️</button>
+
+<!-- ============================================================
+     МОДАЛЬНЫЕ ОКНА
+     ============================================================ -->
+
+<!-- Модалка исследования -->
+<div class="modal-overlay" id="studyModal">
+    <div class="modal" style="max-width:850px">
+        <div class="modal-header modal-header-dark">
+            <div class="modal-title" id="studyModalTitle">✨ Новое исследование</div>
+            <button class="modal-close" onclick="closeModal('studyModal')">✕</button>
+        </div>
+        <div class="modal-body">
+            <div id="studyModalBanner"></div>
+            <div id="rememberedHint" style="display:none;background:linear-gradient(135deg,#1e3a5f,#4338ca);color:#e0e7ff;padding:10px 14px;border-radius:8px;font-size:12px;margin-bottom:12px">
+                💡 Врач и лаборант подставлены автоматически
+            </div>
+
+            <div class="step">
+                <div class="step-header" onclick="toggleStep(1)">
+                    <div class="step-title"><div class="step-number">1</div>Данные пациента</div>
+                    <span>▼</span>
+                </div>
+                <div class="step-body" id="step1Body">
+                    <div class="grid">
+                        <div class="field autocomplete-wrapper" style="grid-column:1/-1">
+                            <label class="field-label">ФИО <span class="req">*</span></label>
+                            <input type="text" class="input" id="fio" placeholder="Иванов Иван Иванович"
+                                   oninput="onFioInput();validateFio()" autocomplete="off">
+                            <div class="autocomplete-list" id="fioAutocomplete"></div>
+                            <div class="field-hint">💡 Только русские буквы</div>
+                            <div class="field-error" id="fioError">Только русские буквы</div>
+                        </div>
+                        <div class="field">
+                            <label class="field-label">Дата рождения <span class="req">*</span></label>
+                            <input type="text" class="input" id="birthDate" placeholder="ДД.ММ.ГГГГ" inputmode="numeric"
+                                   oninput="onBirthDateInput()" onblur="onBirthDateBlur()" autocomplete="off">
+                            <div class="field-hint">💡 13.09.2026, 13/09/2026 или 2026-09-13</div>
+                            <div class="field-error" id="birthDateError">Возраст 0-120 лет</div>
+                        </div>
+                        <div class="field"><label class="field-label">Возраст</label><input type="text" class="input" id="age" readonly></div>
+                        <div class="field"><label class="field-label">№ истории</label><input type="text" class="input" id="historyNum"></div>
+                        <div class="field">
+                            <label class="field-label">Отделение <span class="req">*</span></label>
+                            <select class="select" id="dept"></select>
+                            <div class="field-error" id="deptError">Выберите отделение</div>
+                        </div>
+                        <div class="field" style="grid-column:1/-1">
+                            <label class="field-label">📑 Шаблон исследования</label>
+                            <select class="select" id="templateSelect" onchange="applyTemplateFromSelect()">
+                                <option value="">— выберите шаблон —</option>
+                            </select>
+                        </div>
+                        <div class="field" style="grid-column:1/-1">
+                            <label class="field-label">Диагноз МКБ-10</label>
+                            <div style="display:flex;gap:8px">
+                                <input type="text" class="input" id="icdDisplay"
+                                       placeholder="S06.0.0 — сотрясение...  или  J18 - Пневмония"
+                                       oninput="onIcdInput(this)" onblur="onIcdBlur(this)"
+                                       onpaste="onIcdPaste(event, this)" autocomplete="off">
+                                <button class="btn btn-secondary" onclick="openICD()">📋 Выбрать</button>
+                                <button class="btn btn-secondary" onclick="clearICD()">✕</button>
+                            </div>
+                            <div class="field-hint">💡 Можно вставить строку с кодом и названием</div>
+                        </div>
+                        <div class="field">
+                            <label class="field-label">Дата поступления <span class="req">*</span></label>
+                            <input type="text" class="input" id="admitDate" placeholder="ДД.ММ.ГГГГ" inputmode="numeric"
+                                   oninput="handleDateInput(this)" onblur="normalizeDateInput(this)" autocomplete="off">
+                            <div class="field-hint">💡 ДД.ММ.ГГГГ</div>
+                        </div>
+                        <div class="field">
+                            <label class="field-label">Время поступления <span class="req">*</span></label>
+                            <input type="time" class="input" id="admitTime">
+                        </div>
+                        <div class="field">
+                            <label class="field-label">Дата исследования <span class="req">*</span></label>
+                            <input type="text" class="input" id="studyDate" placeholder="ДД.ММ.ГГГГ" inputmode="numeric"
+                                   oninput="handleDateInput(this)" onblur="normalizeDateInput(this)" autocomplete="off">
+                            <div class="field-hint">💡 ДД.ММ.ГГГГ</div>
+                        </div>
+                        <div class="field">
+                            <label class="field-label">Время исследования <span class="req">*</span></label>
+                            <input type="time" class="input" id="studyTime">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="step" id="step2">
+                <div class="step-header" onclick="toggleStep(2)">
+                    <div class="step-title"><div class="step-number">2</div>Нативные зоны <span class="badge" id="nativeCount">0</span></div>
+                    <span>▼</span>
+                </div>
+                <div class="step-body" id="step2Body">
+                    <div class="zones-container" id="nativeZones"></div>
+                    <div class="btn-row">
+                        <button class="btn btn-add" onclick="openZonePicker('native')">➕ Добавить зоны</button>
+                        <button class="btn btn-clear" onclick="clearZones('native')">🗑️ Очистить</button>
+                    </div>
+                    <div style="font-size:12px;margin-top:12px">Доза нативных: <strong id="nativeDose">0.0</strong> мЗв</div>
+                </div>
+            </div>
+
+            <div class="step" id="step3">
+                <div class="step-header" onclick="toggleStep(3)">
+                    <div class="step-title"><div class="step-number">3</div>Расходники и контраст</div>
+                    <span>▼</span>
+                </div>
+                <div class="step-body" id="step3Body">
+                    <div class="grid">
+                        <div class="field">
+                            <label class="field-label">💉 Контрастный препарат</label>
+                            <select class="select" id="contrastDrug" onchange="onContrastDrugChange()">
+                                <option value="">— без контраста —</option>
+                            </select>
+                            <div class="field-hint" id="drugStockHint"></div>
+                        </div>
+                        <div class="field"><label class="field-label">Количество (мл)</label><input type="number" class="input" id="contrastAmount" min="0" step="1" value="0"></div>
+                        <div class="field"><label class="field-label">Колбы (шт)</label><input type="number" class="input" id="flasks" min="0" step="1" value="0"></div>
+                        <div class="field"><label class="field-label">Переходники (шт)</label><input type="number" class="input" id="adapters" min="0" step="1" value="0"></div>
+                        <div class="field"><label class="field-label">Удлинители (шт)</label><input type="number" class="input" id="extenders" min="0" step="1" value="0"></div>
+                    </div>
+                    <div class="btn-row">
+                        <button class="btn btn-confirm" onclick="confirmStep(3)">✅ Подтвердить расходники</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="step locked" id="step4">
+                <div class="step-header" onclick="toggleStep(4)">
+                    <div class="step-title">
+                        <div class="step-number">4</div>Зоны с КУ <span class="badge" id="contrastCount">0</span>
+                        <span id="step4Status" style="background:#fee2e2;color:#991b1b;padding:4px 10px;border-radius:12px;font-size:11px;font-weight:700">🔒 Заблокировано</span>
+                    </div>
+                    <span>▼</span>
+                </div>
+                <div class="step-body" id="step4Body">
+                    <div id="step4LockMsg" style="padding:12px;background:#fee2e2;color:#991b1b;border-radius:8px;margin-bottom:12px;font-size:13px">
+                        🔒 Сначала подтвердите расходники
+                    </div>
+                    <div class="zones-container" id="contrastZones"></div>
+                    <div class="btn-row">
+                        <button class="btn btn-add" onclick="openZonePicker('contrast')" id="addContrastBtn" disabled>➕ Добавить зоны</button>
+                        <button class="btn btn-clear" onclick="clearZones('contrast')">🗑️ Очистить</button>
+                    </div>
+                    <div style="font-size:12px;margin-top:12px">Доза КУ: <strong id="contrastDose">0.0</strong> мЗв</div>
+                </div>
+            </div>
+
+            <div class="step">
+                <div class="step-header" onclick="toggleStep(5)">
+                    <div class="step-title"><div class="step-number">5</div>Исполнители</div>
+                    <span>▼</span>
+                </div>
+                <div class="step-body" id="step5Body">
+                    <div class="grid">
+                        <div class="field">
+                            <label class="field-label">🩺 Врач <span class="req">*</span></label>
+                            <select class="select" id="doctor" onchange="rememberStaff()"></select>
+                        </div>
+                        <div class="field">
+                            <label class="field-label">👩‍🔬 Лаборант <span class="req">*</span></label>
+                            <select class="select" id="lab" onchange="rememberStaff()"></select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeModal('studyModal')">Отмена</button>
+            <button class="btn btn-secondary" onclick="saveAsTemplate()">💾 Как шаблон</button>
+            <button class="btn btn-success" onclick="saveStudy()">💾 Сохранить</button>
+        </div>
+    </div>
+</div>
+
+<!-- Модалка заявки -->
+<div class="modal-overlay" id="requestModal">
+    <div class="modal" style="max-width:850px">
+        <div class="modal-header modal-header-dark">
+            <div class="modal-title" id="requestModalTitle">📨 Новая заявка на КТ</div>
+            <button class="modal-close" onclick="closeModal('requestModal')">✕</button>
+        </div>
+        <div class="modal-body">
+            <div style="background:linear-gradient(135deg,#1e3a5f,#4338ca);color:#e0e7ff;padding:10px 14px;border-radius:8px;font-size:12px;margin-bottom:14px">
+                🏥 Заявка от отделения: <strong id="reqDeptDisplaySpan"></strong>
+            </div>
+
+            <div class="step">
+                <div class="step-header" onclick="toggleStep(1)">
+                    <div class="step-title"><div class="step-number">1</div>Данные пациента</div>
+                    <span>▼</span>
+                </div>
+                <div class="step-body" id="step1Body">
+                    <div class="grid">
+                        <div class="field autocomplete-wrapper" style="grid-column:1/-1">
+                            <label class="field-label">ФИО <span class="req">*</span></label>
+                            <input type="text" class="input" id="reqFio" placeholder="Иванов Иван Иванович"
+                                   oninput="onReqFioInput()" autocomplete="off">
+                            <div class="autocomplete-list" id="reqFioAutocomplete"></div>
+                            <div class="field-hint">💡 Только русские буквы</div>
+                            <div class="field-error" id="reqFioError">Только русские буквы</div>
+                        </div>
+                        <div class="field">
+                            <label class="field-label">Дата рождения <span class="req">*</span></label>
+                            <input type="text" class="input" id="reqBirthDate" placeholder="ДД.ММ.ГГГГ" inputmode="numeric"
+                                   oninput="onReqBirthDateInput()" onblur="onReqBirthDateBlur()" autocomplete="off">
+                            <div class="field-error" id="reqBirthDateError">Возраст 0-120 лет</div>
+                        </div>
+                        <div class="field"><label class="field-label">Возраст</label><input type="text" class="input" id="reqAge" readonly></div>
+                        <div class="field"><label class="field-label">№ истории <span class="req">*</span></label><input type="text" class="input" id="reqHistoryNum"></div>
+                        <div class="field"><label class="field-label">Отделение</label><input type="text" class="input" id="reqDeptDisplay" readonly style="background:var(--surface-2);cursor:not-allowed"></div>
+
+                        <div class="field autocomplete-wrapper" style="grid-column:1/-1">
+                            <label class="field-label">🩺 Врач, направивший на исследование <span class="req">*</span></label>
+                            <input type="text" class="input" id="reqReferringDoctor" placeholder="Иванов А.А. (врач-хирург)"
+                                   oninput="onRefDoctorInput()" onblur="onRefDoctorBlur()" autocomplete="off">
+                            <div class="autocomplete-list" id="reqReferringDoctorAutocomplete"></div>
+                            <div class="field-hint">💡 Начните вводить — появятся врачи из справочника</div>
+                            <div class="field-error" id="reqReferringDoctorError">Укажите врача-направителя</div>
+                        </div>
+
+                        <div class="field">
+                            <label class="field-label">Дата поступления <span class="req">*</span></label>
+                            <input type="text" class="input" id="reqAdmitDate" placeholder="ДД.ММ.ГГГГ" inputmode="numeric"
+                                   oninput="handleDateInput(this)" onblur="normalizeDateInput(this)" autocomplete="off">
+                        </div>
+                        <div class="field">
+                            <label class="field-label">Время поступления <span class="req">*</span></label>
+                            <input type="time" class="input" id="reqAdmitTime">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="step">
+                <div class="step-header" onclick="toggleStep(2)">
+                    <div class="step-title"><div class="step-number">2</div>Клинические данные</div>
+                    <span>▼</span>
+                </div>
+                <div class="step-body" id="step2Body">
+                    <div class="grid">
+                        <div class="field" style="grid-column:1/-1">
+                            <label class="field-label">Диагноз МКБ-10 <span class="req">*</span></label>
+                            <div style="display:flex;gap:8px">
+                                <input type="text" class="input" id="reqIcdDisplay" placeholder="J18 — Пневмония"
+                                       oninput="onReqIcdInput(this)" onblur="onReqIcdBlur(this)"
+                                       onpaste="onReqIcdPaste(event, this)" autocomplete="off">
+                                <button class="btn btn-secondary" onclick="openReqICD()">📋 Выбрать</button>
+                                <button class="btn btn-secondary" onclick="clearReqICD()">✕</button>
+                            </div>
+                        </div>
+                        <div class="field" style="grid-column:1/-1">
+                            <label class="field-label">Цель исследования <span class="req">*</span></label>
+                            <textarea class="textarea" id="reqPurpose" placeholder="Опишите цель направления..." style="min-height:90px"></textarea>
+                            <div class="field-error" id="reqPurposeError">Заполните цель исследования</div>
+                        </div>
+                        <div class="field" style="grid-column:1/-1">
+                            <label style="display:flex;align-items:center;gap:10px;cursor:pointer;padding:10px 14px;background:var(--surface-2);border-radius:var(--radius-sm);border:1.5px solid var(--border)">
+                                <input type="checkbox" id="reqUrgent" style="width:18px;height:18px;cursor:pointer">
+                                <span style="font-size:14px;font-weight:700">🔥 СРОЧНО — вне очереди</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="step">
+                <div class="step-header" onclick="toggleStep(3)">
+                    <div class="step-title"><div class="step-number">3</div>Зоны исследования</div>
+                    <span>▼</span>
+                </div>
+                <div class="step-body" id="step3Body">
+                    <div style="margin-bottom:14px">
+                        <label class="field-label">🦴 Нативные зоны <span class="badge" id="reqNativeCount">0</span></label>
+                        <div class="zones-container" id="reqNativeZones"></div>
+                        <div class="btn-row">
+                            <button class="btn btn-add" onclick="openZonePicker('requestNative')">➕ Добавить зоны</button>
+                            <button class="btn btn-clear" onclick="clearRequestZones('native')">🗑️ Очистить</button>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="field-label">💉 Зоны с контрастом (КУ) <span class="badge" id="reqContrastCount">0</span></label>
+                        <div class="zones-container" id="reqContrastZones"></div>
+                        <div class="btn-row">
+                            <button class="btn btn-add" onclick="openZonePicker('requestContrast')">➕ Добавить зоны</button>
+                            <button class="btn btn-clear" onclick="clearRequestZones('contrast')">🗑️ Очистить</button>
+                        </div>
+                    </div>
+                    <div style="font-size:12px;color:var(--text-muted);margin-top:12px">
+                        💡 Выберите хотя бы одну зону. Контраст и расходники подберёт лаборант при оформлении.
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeModal('requestModal')">Отмена</button>
+            <button class="btn btn-success" id="requestSubmitBtn" onclick="saveRequest()">📨 Отправить заявку</button>
+        </div>
+    </div>
+</div>
+
+<!-- Модалка деталей заявки -->
+<div class="modal-overlay" id="requestDetailModal">
+    <div class="modal" style="max-width:640px">
+        <div class="modal-header modal-header-dark">
+            <div class="modal-title">📨 Детали заявки</div>
+            <button class="modal-close" onclick="closeModal('requestDetailModal')">✕</button>
+        </div>
+        <div class="modal-body" id="requestDetailBody"></div>
+        <div class="modal-footer" id="requestDetailFooter"></div>
+    </div>
+</div>
+
+<!-- Модалка отклонения заявки -->
+<div class="modal-overlay" id="rejectModal">
+    <div class="modal" style="max-width:520px">
+        <div class="modal-header" style="background:#fee2e2">
+            <div class="modal-title" style="color:var(--danger)">❌ Отклонение заявки</div>
+            <button class="modal-close" onclick="closeModal('rejectModal')">✕</button>
+        </div>
+        <div class="modal-body">
+            <div style="font-size:13px;margin-bottom:12px;color:var(--text)">
+                Укажите <strong>причину отклонения</strong>. Отделение увидит её и сможет исправить заявку.
+            </div>
+            <div class="field">
+                <label class="field-label">Причина <span class="req">*</span></label>
+                <textarea class="textarea" id="rejectReason" placeholder="Например: некорректные данные пациента..." style="min-height:90px"></textarea>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeModal('rejectModal')">Отмена</button>
+            <button class="btn btn-danger" onclick="confirmRejectRequest()">❌ Отклонить</button>
+        </div>
+    </div>
+</div>
+
+<!-- Модалка нового МКБ -->
+<div class="modal-overlay" id="addIcdModal">
+    <div class="modal" style="max-width:520px">
+        <div class="modal-header modal-header-dark">
+            <div class="modal-title">📚 Новый код МКБ-10</div>
+            <button class="modal-close" onclick="closeModal('addIcdModal')">✕</button>
+        </div>
+        <div class="modal-body">
+            <div style="font-size:13px;margin-bottom:14px;color:var(--text)">
+                Этот код <strong>не найден</strong> в вашем справочнике. Добавить его?
+            </div>
+            <div class="field" style="margin-bottom:12px">
+                <label class="field-label">Код</label>
+                <input type="text" class="input" id="addIcdCode" readonly style="font-family:'Courier New',monospace;font-weight:700">
+            </div>
+            <div class="field" style="margin-bottom:12px">
+                <label class="field-label">Название <span class="req">*</span></label>
+                <textarea class="textarea" id="addIcdName" placeholder="Введите название диагноза..." style="min-height:70px"></textarea>
+            </div>
+            <div class="field">
+                <label class="field-label">Группа (для удобства поиска)</label>
+                <select class="select" id="addIcdCategory">
+                    <option value="">— без группы —</option>
+                    <option value="infect">🦠 Инфекционные болезни</option>
+                    <option value="tumor">🎗️ Новообразования</option>
+                    <option value="blood">🩸 Болезни крови</option>
+                    <option value="endocrine">⚖️ Эндокринные</option>
+                    <option value="mental">🧠 Психические</option>
+                    <option value="nervous">🧠 Нервная система</option>
+                    <option value="eye">👁️ Глаз</option>
+                    <option value="ear">👂 Ухо</option>
+                    <option value="circulatory">❤️ Кровообращение</option>
+                    <option value="respiratory">🫁 Дыхание</option>
+                    <option value="digestive">🫃 Пищеварение</option>
+                    <option value="skin">🖐️ Кожа</option>
+                    <option value="muscle">🦴 Костно-мышечная</option>
+                    <option value="urogenital">🚻 Мочеполовая</option>
+                    <option value="pregnancy">🤰 Беременность</option>
+                    <option value="child">👶 Детство</option>
+                    <option value="injury">🩹 Травмы и отравления</option>
+                    <option value="external">☠️ Внешние причины</option>
+                </select>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeModal('addIcdModal')">Отмена</button>
+            <button class="btn btn-success" onclick="saveNewIcd()">✅ Добавить в справочник</button>
+        </div>
+    </div>
+</div>
+
+<!-- Рабочее место врача -->
+<div class="modal-overlay" id="doctorWorkspace" style="z-index:1500;padding:10px">
+    <div style="background:var(--bg);border-radius:var(--radius);width:100%;max-width:1600px;max-height:98vh;overflow:hidden;display:flex;flex-direction:column">
+        <div style="padding:12px 20px;background:linear-gradient(135deg,#dbeafe,#eff6ff);border-bottom:2px solid var(--primary);display:flex;justify-content:space-between;align-items:center">
+            <div style="font-weight:700;color:var(--primary-dark);font-size:16px;display:flex;align-items:center;gap:8px">👨‍⚕️ Рабочее место врача</div>
+            <div style="display:flex;gap:8px">
+                <button class="btn btn-danger" onclick="openDeleteStudyModal(state.currentDoctorStudyId)">🗑️ Удалить</button>
+                <button class="btn btn-info" onclick="printProtocol(state.currentDoctorStudyId)">🖨️ Печать</button>
+                <button class="btn btn-word" onclick="exportToWord()">📄 Сохранить в Word</button>
+                <button class="btn btn-secondary" onclick="closeModal('doctorWorkspace')">✕ Закрыть</button>
+            </div>
+        </div>
+        <div class="doctor-workspace" style="padding:16px;overflow-y:auto;flex:1">
+            <div class="doctor-left">
+                <div class="panel-title">📋 Исследования пациента</div>
+                <div id="patientInfo" style="padding:10px;background:var(--surface-2);border-radius:var(--radius-sm);margin-bottom:12px;font-size:12px"></div>
+                <div id="patientStudiesList"></div>
+            </div>
+            <div class="doctor-center">
+                <div class="hospital-header">
+                    <div class="hospital-emblem">🏥</div>
+                    <div class="hospital-name">МИНИСТЕРСТВО ЗДРАВООХРАНЕНИЯ МОСКОВСКОЙ ОБЛАСТИ<br>ГБУЗ МО «Жуковская областная клиническая больница»</div>
+                    <div class="hospital-subtitle">140186, Московская область, г. Жуковский</div>
+                    <div class="hospital-doc-title">Протокол КТ-исследования</div>
+                </div>
+                <div style="background:var(--surface-2);padding:12px;border-radius:var(--radius-sm);font-size:12px;display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px" id="docInfoPanel"></div>
+
+                <div id="editableFieldsBlock" style="display:none;background:#fef3c7;padding:12px;border-radius:var(--radius-sm);border:1px solid var(--warning);margin-bottom:12px">
+                    <div style="font-weight:700;margin-bottom:8px;font-size:12px">✏️ Редактирование данных</div>
+                    <div class="grid">
+                        <div class="field"><label class="field-label">Дата исследования</label><input type="text" class="input" id="editStudyDate" placeholder="ДД.ММ.ГГГГ" inputmode="numeric" oninput="handleDateInput(this)" onblur="normalizeDateInput(this)"></div>
+                        <div class="field"><label class="field-label">Время</label><input type="time" class="input" id="editStudyTime"></div>
+                        <div class="field"><label class="field-label">Доза (мЗв)</label><input type="number" class="input" id="editTotalDose" step="0.1"></div>
+                        <div class="field"><label class="field-label">Контраст (мл)</label><input type="number" class="input" id="editContrastAmount"></div>
+                    </div>
+                    <div class="btn-row">
+                        <button class="btn btn-success" onclick="saveEditableFields()">💾 Сохранить</button>
+                        <button class="btn btn-secondary" onclick="document.getElementById('editableFieldsBlock').style.display='none'">Отмена</button>
+                    </div>
+                </div>
+
+                <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:2px solid var(--primary);padding-bottom:8px;flex-wrap:wrap;gap:8px">
+                    <div id="zoneTitle" style="font-weight:700;font-size:16px;display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+                        <span>Выберите зону слева</span>
+                    </div>
+                    <div style="display:flex;gap:8px;align-items:center">
+                        <span id="docStatusPill" class="status-pill pending">🟡 Ожидает</span>
+                        <button class="btn btn-secondary" onclick="document.getElementById('editableFieldsBlock').style.display='block'" style="padding:4px 10px;font-size:11px">✏️</button>
+                    </div>
+                </div>
+                <div class="zone-nav">
+                    <button class="btn btn-secondary" onclick="navigateZone(-1)">◀ Пред.</button>
+                    <button class="btn btn-secondary" onclick="navigateZone(1)">След. ▶</button>
+                    <span id="zoneCounter" style="font-size:12px;color:var(--text-muted);display:flex;align-items:center;margin-left:8px">0 / 0</span>
+                </div>
+                <textarea class="description-area" id="doctorDescription" placeholder="Напишите описание для выбранной зоны... Используйте шаблоны справа."></textarea>
+                <div id="signatureBlock" style="display:none" class="signature-block">
+                    <div style="font-weight:700;margin-bottom:8px">✅ Зона подписана</div>
+                    <div style="font-size:12px;color:var(--text-muted)">
+                        <div><strong>Врач:</strong> <span id="signedBy">—</span></div>
+                        <div><strong>Дата подписи:</strong> <span id="signedAt">—</span></div>
+                    </div>
+                </div>
+            </div>
+            <div class="doctor-right" title="📚 Библиотека описаний — создание, выбор и подписание описаний">
+    <!-- Сетка иконок 2×3 -->
+
+                <div class="doctor-icon-grid">
+    <button class="doctor-icon-btn btn-icon-new has-tooltip" 
+            data-tooltip="Создать новый шаблон описания"
+            onclick="openDescTemplateModal()">
+        <span class="icon-emoji">➕</span>
+        <span>Новый</span>
+    </button>
+
+    <button class="doctor-icon-btn btn-icon-list has-tooltip" 
+            data-tooltip="Открыть библиотеку всех шаблонов"
+            onclick="openTemplatesListModal()">
+        <span class="icon-emoji">📚</span>
+        <span>Шаблоны</span>
+    </button>
+
+    <button class="doctor-icon-btn btn-icon-constructor has-tooltip" 
+            data-tooltip="Открыть конструктор протокола (норма/патология по органам)"
+            onclick="openProtocolConstructor()">
+        <span class="icon-emoji">🔧</span>
+        <span>Констр.</span>
+    </button>
+
+    <button class="doctor-icon-btn btn-icon-reset has-tooltip" 
+            data-tooltip="Сбросить описание выбранной зоны"
+            onclick="resetZoneDescription()">
+        <span class="icon-emoji">🔄</span>
+        <span>Сброс</span>
+    </button>
+
+    <button class="doctor-icon-btn btn-icon-save has-tooltip" 
+            data-tooltip="Сохранить описание выбранной зоны"
+            onclick="saveDoctorDescription()">
+        <span class="icon-emoji">💾</span>
+        <span>Сохранить</span>
+    </button>
+
+    <button class="doctor-icon-btn btn-icon-sign has-tooltip" 
+            data-tooltip="Подписать зону (зафиксировать описание)"
+            onclick="signZone()">
+        <span class="icon-emoji">✍️</span>
+        <span>Подпись</span>
+    </button>
+</div>
+
+           		<!-- Скрытый контейнер для renderGroupedTemplates (используется при выборе зоны) -->
+		<div id="groupedTemplatesPanel" style="display:none"></div>
+            
+	    </div>
+        </div>
+    </div>
+</div>
+
+<!-- ============================================================
+     МОДАЛКА: КОНСТРУКТОР ПРОТОКОЛА (v25)
+     ============================================================ -->
+<div class="modal-overlay" id="protocolConstructorModal" style="z-index:2200">
+    <div class="modal" style="max-width:900px;max-height:92vh;display:flex;flex-direction:column">
+        <div class="modal-header modal-header-dark">
+            <div class="modal-title" id="protocolConstructorTitle">🔧 Конструктор протокола</div>
+            <button class="modal-close" onclick="closeModal('protocolConstructorModal')">✕</button>
+        </div>
+
+        <div class="modal-body" style="padding:16px;overflow-y:auto;flex:1">
+            <div id="protocolTypeIndicator"></div>
+            <div class="field" style="margin-bottom:16px">
+                <label class="field-label">Область исследования</label>
+                <select class="select" id="protocolRegionSelect"
+                        onchange="setProtocolRegion(this.value)" style="margin-top:6px">
+                </select>
+            </div>
+
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+                <div style="font-size:12px;color:var(--text-muted)">
+                    💡 У каждого органа выберите «Норма» или «Патология»
+                </div>
+                <button class="btn btn-success" style="padding:6px 14px;font-size:12px"
+                        onclick="setAllOrgansNormal()">✓ Всё — норма</button>
+            </div>
+
+            <div id="protocolConstructorPanel"></div>
+        </div>
+
+        <div class="modal-footer" style="flex-wrap:wrap">
+            <button class="btn btn-secondary" onclick="closeModal('protocolConstructorModal')">Отмена</button>
+            <button class="btn btn-secondary" onclick="saveProtocolConstructorAsTemplate()">💾 Сохранить как шаблон</button>
+            <button class="btn btn-success" onclick="insertProtocolConstructorToDescription()">📥 Вставить в описание</button>
+        </div>
+    </div>
+</div>
+
+<!-- ============================================================
+     МОДАЛКА: СПИСОК ШАБЛОНОВ ОПИСАНИЙ
+     ============================================================ -->
+<div class="modal-overlay" id="templatesListModal" style="z-index:2450">
+    <div class="modal" style="max-width:900px;max-height:92vh;display:flex;flex-direction:column">
+        <div class="modal-header" style="background:linear-gradient(135deg,#1e3a5f,#4338ca);color:#e0e7ff">
+            <div class="modal-title" style="color:#e0e7ff">📚 Библиотека шаблонов описаний</div>
+            <button class="modal-close" style="color:#e0e7ff" onclick="closeModal('templatesListModal')">✕</button>
+        </div>
+
+        <div class="modal-body" style="padding:16px;overflow-y:auto;flex:1">
+            
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:8px">
+    <div style="font-size:13px;color:var(--text-muted);flex:1;min-width:200px">
+        💡 Кликните на шаблон → вставится в описание зоны
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-secondary" onclick="exportDescTemplates()" style="padding:6px 12px;font-size:11px">📤 Экспорт</button>
+        <button class="btn btn-secondary" onclick="document.getElementById('importDescFileModal').click()" style="padding:6px 12px;font-size:11px">📥 Импорт</button>
+        <input type="file" id="importDescFileModal" accept=".json" style="display:none" onchange="importDescTemplates(event)">
+        <button class="btn btn-add" onclick="closeModal('templatesListModal');openDescTemplateModal()" style="padding:6px 12px;font-size:11px">➕ Новый шаблон</button>
+    </div>
+</div>
+
+<!-- 🔍 Поле поиска -->
+<div class="field" style="margin-bottom:14px">
+    <input type="text" 
+           class="input" 
+           id="templatesSearchInput"
+           placeholder="🔍 Поиск по названию или тексту шаблона..."
+           oninput="renderTemplatesListModal()"
+           autocomplete="off">
+</div>
+
+<div id="templatesListModalBody"></div>
+        </div>
+
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeModal('templatesListModal')">Закрыть</button>
+        </div>
+    </div>
+</div>
+
+
+<!-- Шаблон описания -->
+<div class="modal-overlay" id="descTemplateModal" style="z-index:2500">
+    <div class="modal">
+        <div class="modal-header modal-header-dark">
+            <div class="modal-title" id="descTemplateModalTitle">📝 Шаблон описания</div>
+            <button class="modal-close" onclick="closeModal('descTemplateModal')">✕</button>
+        </div>
+        <div class="modal-body">
+            <div class="field" style="margin-bottom:12px">
+                <label class="field-label">Название <span class="req">*</span></label>
+                <input type="text" class="input" id="descTemplateName" placeholder="Например: Пневмония нижнедолевая">
+            </div>
+            <div class="field" style="margin-bottom:12px">
+                <label class="field-label">Группа (область)</label>
+                <select class="select" id="descTemplateCategory">
+                    <option value="gm">🧠 Головной мозг</option>
+                    <option value="ogk">🫁 Грудная клетка</option>
+                    <option value="obp">🫃 Брюшная полость</option>
+                    <option value="mt">🦴 Малый таз</option>
+                    <option value="spine">🦴 Позвоночник</option>
+                    <option value="other">📦 Другое</option>
+                </select>
+            </div>
+            <div class="field">
+                <label class="field-label">Текст шаблона <span class="req">*</span></label>
+                <textarea class="textarea" id="descTemplateText" style="min-height:200px;font-family:'Courier New',monospace" placeholder="На серии КТ-срезов..."></textarea>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeModal('descTemplateModal')">Отмена</button>
+            <button class="btn btn-success" onclick="saveDescTemplate()">💾 Сохранить</button>
+        </div>
+    </div>
+</div>
+
+<!-- Ошибки -->
+<div class="modal-overlay" id="errorModal">
+    <div class="modal" style="max-width:500px">
+        <div class="modal-header" style="background:#fee2e2">
+            <div class="modal-title" style="color:var(--danger)">⚠️ Ошибки</div>
+            <button class="modal-close" onclick="closeModal('errorModal')">✕</button>
+        </div>
+        <div class="modal-body"><ul class="error-list" id="errorList"></ul></div>
+        <div class="modal-footer"><button class="btn btn-primary" onclick="closeModal('errorModal')">Понятно</button></div>
+    </div>
+</div>
+
+<!-- МКБ -->
+<div class="modal-overlay" id="icdModal">
+    <div class="modal">
+        <div class="modal-header modal-header-dark">
+            <div class="modal-title">🩺 МКБ-10</div>
+            <button class="modal-close" onclick="closeModal('icdModal')">✕</button>
+        </div>
+        <div class="modal-body">
+            <input type="text" class="input" style="margin-bottom:12px" id="icdSearch" placeholder="🔍 Поиск..." oninput="renderICD()">
+            <div class="icd-list" id="icdList"></div>
+        </div>
+    </div>
+</div>
+
+<!-- Выбор зон -->
+<div class="modal-overlay zone-picker" id="zoneModal">
+    <div class="modal">
+        <div class="modal-header modal-header-dark">
+            <div class="modal-title" id="zoneModalTitle">Выбор зон <span class="selected-counter" id="zoneSelectedCounter">0 выбрано</span></div>
+            <button class="modal-close" onclick="closeZonePicker()">✕</button>
+        </div>
+        <div class="modal-body">
+            <input type="text" class="input" style="margin-bottom:12px" id="zoneSearch" placeholder="🔍 Поиск..." oninput="renderZonePicker()">
+            <div id="zonePickerList"></div>
+        </div>
+        <div class="modal-footer"><button class="btn btn-success" onclick="closeZonePicker()">✅ Готово</button></div>
+    </div>
+</div>
+
+<!-- Шаблон исследования -->
+<div class="modal-overlay" id="templateModal">
+    <div class="modal">
+        <div class="modal-header modal-header-dark">
+            <div class="modal-title" id="templateModalTitle">📑 Шаблон исследования</div>
+            <button class="modal-close" onclick="closeModal('templateModal')">✕</button>
+        </div>
+        <div class="modal-body">
+            <div class="field" style="margin-bottom:12px">
+                <label class="field-label">Название <span class="req">*</span></label>
+                <input type="text" class="input" id="templateName">
+            </div>
+            <div class="field" style="margin-bottom:12px">
+                <label class="field-label">Нативные зоны</label>
+                <div class="zones-container" id="templateNativeZones"></div>
+                <button class="btn btn-secondary" style="margin-top:8px" onclick="openZonePicker('templateNative')">➕ Добавить</button>
+            </div>
+            <div class="field">
+                <label class="field-label">Зоны с КУ</label>
+                <div class="zones-container" id="templateContrastZones"></div>
+                <button class="btn btn-secondary" style="margin-top:8px" onclick="openZonePicker('templateContrast')">➕ Добавить</button>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeModal('templateModal')">Отмена</button>
+            <button class="btn btn-success" onclick="saveTemplate()">💾 Сохранить</button>
+        </div>
+    </div>
+</div>
+
+<!-- Препарат -->
+<div class="modal-overlay" id="drugModal">
+    <div class="modal">
+        <div class="modal-header modal-header-dark">
+            <div class="modal-title" id="drugModalTitle">🧪 Препарат</div>
+            <button class="modal-close" onclick="closeModal('drugModal')">✕</button>
+        </div>
+        <div class="modal-body">
+            <div class="field" style="margin-bottom:12px">
+                <label class="field-label">Название <span class="req">*</span></label>
+                <input type="text" class="input" id="drugName">
+            </div>
+            <div class="grid" style="margin-bottom:12px">
+                <div class="field"><label class="field-label">Концентрация</label><input type="text" class="input" id="drugConc"></div>
+                <div class="field"><label class="field-label">Остаток (мл)</label><input type="number" class="input" id="drugStock" value="0"></div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeModal('drugModal')">Отмена</button>
+            <button class="btn btn-success" onclick="saveDrug()">💾 Сохранить</button>
+        </div>
+    </div>
+</div>
+
+<!-- Расходник -->
+<div class="modal-overlay" id="consumableModal">
+    <div class="modal">
+        <div class="modal-header modal-header-dark">
+            <div class="modal-title" id="consumableModalTitle">🔧 Расходник</div>
+            <button class="modal-close" onclick="closeModal('consumableModal')">✕</button>
+        </div>
+        <div class="modal-body">
+            <div class="field" style="margin-bottom:12px">
+                <label class="field-label">Название <span class="req">*</span></label>
+                <input type="text" class="input" id="consumableName" placeholder="Колба, переходник, удлинитель">
+            </div>
+            <div class="grid" style="margin-bottom:12px">
+                <div class="field"><label class="field-label">Остаток (шт)</label><input type="number" class="input" id="consumableStock" value="0"></div>
+                <div class="field"><label class="field-label">Мин. остаток</label><input type="number" class="input" id="consumableMinStock" value="10"></div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeModal('consumableModal')">Отмена</button>
+            <button class="btn btn-success" onclick="saveConsumable()">💾 Сохранить</button>
+        </div>
+    </div>
+</div>
+
+<!-- Операция склада -->
+<div class="modal-overlay" id="operationModal">
+    <div class="modal">
+        <div class="modal-header modal-header-dark">
+            <div class="modal-title" id="operationModalTitle">📜 Операция склада</div>
+            <button class="modal-close" onclick="closeModal('operationModal')">✕</button>
+        </div>
+        <div class="modal-body">
+            <div class="field" style="margin-bottom:12px">
+                <label class="field-label">Тип операции</label>
+                <div id="opTypeDisplay" style="padding:10px;background:var(--surface-2);border-radius:var(--radius-sm);font-weight:700"></div>
+            </div>
+            <div class="field" style="margin-bottom:12px">
+                <label class="field-label">Препарат/Расходник <span class="req">*</span></label>
+                <select class="select" id="opItem"></select>
+            </div>
+            <div class="field" style="margin-bottom:12px">
+                <label class="field-label">Количество <span class="req">*</span></label>
+                <input type="number" class="input" id="opAmount" min="1" step="1" value="1">
+            </div>
+            <div class="field" style="margin-bottom:12px">
+                <label class="field-label">Дата</label>
+                <input type="date" class="input" id="opDate">
+            </div>
+            <div class="field" style="margin-bottom:12px">
+                <label class="field-label">Примечание</label>
+                <textarea class="textarea" id="opNote" placeholder="Накладная №, причина..."></textarea>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeModal('operationModal')">Отмена</button>
+            <button class="btn btn-success" onclick="saveOperation()">💾 Сохранить</button>
+        </div>
+    </div>
+</div>
+
+<!-- Графики -->
+<div class="modal-overlay" id="chartsModal" style="z-index:2600">
+    <div class="modal">
+        <div class="modal-header modal-header-dark">
+            <div class="modal-title" id="chartsModalTitle">📊 Графики</div>
+            <button class="modal-close" onclick="closeChartsModal()">✕</button>
+        </div>
+        <div class="modal-body" id="chartsModalBody"></div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeChartsModal()">Закрыть</button>
+            <button class="btn btn-excel" onclick="exportChartsData()">📊 Сформировать отчёт</button>
+        </div>
+    </div>
+</div>
+
+<!-- Детали смены -->
+<div class="modal-overlay" id="shiftDetailsModal" style="z-index:2650">
+    <div class="modal" style="max-width:1000px;max-height:92vh">
+        <div class="modal-header modal-header-dark">
+            <div class="modal-title" id="shiftDetailsTitle">🔄 Детали смены</div>
+            <button class="modal-close" onclick="closeModal('shiftDetailsModal')">✕</button>
+        </div>
+        <div class="modal-body" id="shiftDetailsBody"></div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeModal('shiftDetailsModal')">Закрыть</button>
+            <button class="btn btn-excel" onclick="exportShiftToExcel()">📊 Скачать в Excel</button>
+        </div>
+    </div>
+</div>
+
+<!-- Удаление всех данных -->
+<div class="modal-overlay" id="confirmDeleteModal" style="z-index:2700">
+    <div class="modal" style="max-width:520px">
+        <div class="modal-header" style="background:#fee2e2">
+            <div class="modal-title" style="color:var(--danger)">⚠️ Удаление всех данных</div>
+            <button class="modal-close" onclick="closeModal('confirmDeleteModal')">✕</button>
+        </div>
+        <div class="modal-body">
+            <div style="font-size:14px;line-height:1.6;margin-bottom:16px">
+                Это действие <strong style="color:var(--danger)">безвозвратно удалит</strong> все данные приложения.
+            </div>
+            <div style="background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:14px;margin-bottom:16px">
+                <div style="font-weight:700;margin-bottom:8px;font-size:13px">🗑️ Что будет удалено:</div>
+                <div id="confirmDeleteList" style="font-size:13px;line-height:1.8"></div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeModal('confirmDeleteModal')">Отмена</button>
+            <button class="btn btn-danger" onclick="confirmClearAllData()">🗑️ Удалить всё</button>
+        </div>
+    </div>
+</div>
+
+<!-- Удаление исследования -->
+<div class="modal-overlay" id="deleteStudyModal" style="z-index:2800">
+    <div class="modal" style="max-width:520px">
+        <div class="modal-header" style="background:#fee2e2">
+            <div class="modal-title" style="color:var(--danger)">🗑️ Удаление исследования</div>
+            <button class="modal-close" onclick="closeModal('deleteStudyModal')">✕</button>
+        </div>
+        <div class="modal-body" id="deleteStudyInfo"></div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeModal('deleteStudyModal')">Отмена</button>
+            <button class="btn btn-danger" id="deleteStudyBtn" onclick="confirmDeleteStudy()">🗑️ Удалить</button>
+        </div>
+    </div>
+</div>
+
+<!-- Уведомление -->
+<div class="toast" id="toast"></div>
+
+<!-- ============================================================
+     МОДАЛКА: IFRAME С ВИДЖЕТОМ
+     ============================================================ -->
+<div class="modal-overlay" id="widgetFrameModal" style="z-index:3500">
+    <div class="modal" style="max-width:1600px;width:98%;height:95vh;display:flex;flex-direction:column">
+        <div class="modal-header modal-header-dark">
+            <div class="modal-title" id="widgetFrameTitle">🩺 Конструктор</div>
+            <button class="modal-close" onclick="closeWidget()">✕</button>
+        </div>
+        <iframe id="widgetFrame" style="width:100%;flex:1;border:none;background:#fff"></iframe>
+    </div>
+</div>
+
+<!-- ============================================================
+     ПОДКЛЮЧЕНИЕ СКРИПТОВ
+     ============================================================ -->
+<script src="js/config.js"></script>
+<script src="js/state.js"></script>
+<script src="js/utils.js"></script>
+<script src="js/api.js"></script> 
+<script src="js/save-load.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/journal.js"></script>
+<script src="js/study.js"></script>
+<script src="js/templates.js"></script>
+<script src="js/descTemplates.js"></script>
+<script src="js/doctorWorkspace.js"></script>
+<script src="js/constructorProtocol.js"></script>
+<script src="js/constructorWidgetsBridge.js"></script>
+<script src="js/stock.js"></script>
+<script src="js/requests.js"></script>
+<script src="js/stats.js"></script>
+<script src="js/settings.js"></script>
+<script src="js/scroll.js"></script>
+<script src="js/export.js"></script>
+<script src="js/print.js"></script>
+<script src="js/theme.js"></script>
+<script src="js/backup.js"></script>
+<script src="js/widgets.js"></script>
+<script src="js/app.js"></script>
+
+</body>
+</html>
